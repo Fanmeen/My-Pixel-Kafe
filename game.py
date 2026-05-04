@@ -1199,7 +1199,7 @@ class CafeTycoon:
                 pygame.draw.circle(self.screen, color, (cx_ + 22, iy + 8), 10)
                 pygame.draw.circle(self.screen, C_BORDER, (cx_ + 22, iy + 8), 10, 1)
                 draw_text(self.screen, self.fonts, f"{icon_char} {label}",
-                          (cx_ + 38, iy), C_CREAM, "small")
+                          (cx_ + 34, iy + 2), C_CREAM, "small")
 
             _, rep_gain, _ = DRINKS[name]
             price, _, _    = DRINKS[name]
