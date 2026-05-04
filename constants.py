@@ -21,26 +21,24 @@ C_WHITE   = (255, 255, 255)
 C_GRAY    = (120, 100,  70)
 
 # ── Drink Definitions  {name: (price, rep_gain, color_hint)} ──────────────────
-# Rep gains: Tea=1, Espresso=2, Latte=3, Cappuccino=3, Mocha=4, Caramel Latte=5
+# Rep gains: Tea=1, Espresso=2, Latte=3, Cappuccino=3, Mocha=4
 DRINKS = {
-    "Tea":          (2, 1, (100, 180, 100)),
-    "Espresso":     (3, 2, (80,  40,  10)),
-    "Latte":        (4, 3, (210, 180, 130)),
-    "Cappuccino":   (4, 3, (190, 140,  80)),
-    "Mocha":        (5, 4, (60,  30,  10)),
-    "Caramel Latte":(6, 5, (210, 155,  50)),
+    "Tea":        (2, 1, (100, 180, 100)),
+    "Espresso":   (3, 2, (80,  40,  10)),
+    "Latte":      (4, 3, (210, 180, 130)),
+    "Cappuccino": (4, 3, (190, 140,  80)),
+    "Mocha":      (5, 4, (60,  30,  10)),
 }
 DRINK_NAMES = list(DRINKS.keys())
 
 # ── Shop unlock requirements {name: (coin_cost, rep_required)} ─────────────────
 # Tea starts available (0 rep). Each next drink needs +10 more rep.
 SHOP_UNLOCK = {
-    "Tea":          (10,  0),
-    "Espresso":     (15, 10),
-    "Latte":        (20, 20),
-    "Cappuccino":   (20, 30),
-    "Mocha":        (30, 40),
-    "Caramel Latte":(35, 50),
+    "Tea":        (10,  0),
+    "Espresso":   (15, 10),
+    "Latte":      (20, 20),
+    "Cappuccino": (20, 30),
+    "Mocha":      (30, 40),
 }
 
 # ── Visual Variety ─────────────────────────────────────────────────────────────

@@ -66,27 +66,31 @@ def load_all_assets(scene_h: int) -> dict:
         a[f"customer_left_{i}"] = load_img(f"assets/customer_left_{i}.png", (120, 150), col)
 
     drink_colors = {
-        "espresso":      (70,  35,  10),
-        "latte":         (210, 180, 130),
-        "cappuccino":    (190, 140,  80),
-        "mocha":         (60,  30,  10),
-        "tea":           (100, 180, 100),
-        "caramel_latte": (210, 155,  50),
+        "espresso":   (70,  35,  10),
+        "latte":      (210, 180, 130),
+        "cappuccino": (190, 140,  80),
+        "mocha":      (60,  30,  10),
+        "tea":        (100, 180, 100),
     }
     for key, col in drink_colors.items():
         a[key] = load_img(f"assets/{key}.png", (32, 32), col)
 
     # ── Completed brew pop-out textures (128×128) ──────────────────────────────
     complete_colors = {
-        "tea":           (100, 180, 100),
-        "espresso":      (70,  35,  10),
-        "latte":         (210, 180, 130),
-        "cappuccino":    (190, 140,  80),
-        "mocha":         (60,  30,  10),
-        "caramel_latte": (210, 155,  50),
+        "tea":        (100, 180, 100),
+        "espresso":   (70,  35,  10),
+        "latte":      (210, 180, 130),
+        "cappuccino": (190, 140,  80),
+        "mocha":      (60,  30,  10),
     }
     for key, col in complete_colors.items():
-        a[f"{key}_complete"] = load_img(f"assets/{key}_complete.png", (128, 128), col)
+        path = f"assets/{key}_complete.png"
+        # Fallback: handle common typo "cuppaccino_complete.png"
+        if key == "cappuccino" and not os.path.exists(path):
+            typo_path = "assets/cuppaccino_complete.png"
+            if os.path.exists(typo_path):
+                path = typo_path
+        a[f"{key}_complete"] = load_img(path, (128, 128), col)
 
     # ── Ingredient tokens (64×64, for brewing UI drag tokens) ─────────────────
     ingredient_colors = {
@@ -99,10 +103,19 @@ def load_all_assets(scene_h: int) -> dict:
         "foam":         (250, 248, 245),
         "choco":        (80,   40,   5),
         "cream":        (255, 245, 225),
-        "caramel":      (210, 130,  15),
     }
     for key, col in ingredient_colors.items():
-        a[f"ing_{key}"] = load_img(f"assets/{key}.png", (64, 64), col)
+        # Handle "ground.png" as an alternative name for "grounds"
+        path = f"assets/{key}.png"
+        if key == "grounds" and not os.path.exists(path):
+            alt = "assets/ground.png"
+            if os.path.exists(alt):
+                path = alt
+        img = load_img(path, (64, 64), col)
+        # Strip black backgrounds from the circle tokens (all uploaded PNGs have black BG)
+        if img:
+            img.set_colorkey((0, 0, 0))
+        a[f"ing_{key}"] = img
 
     # Door animation frames
     a["door_close"]  = load_img("assets/door_close.png",  (2000, 2000), (90, 55, 22))
@@ -129,15 +142,19 @@ def load_all_assets(scene_h: int) -> dict:
 
     # ── Completed brew textures (pixel-art finished drinks) ───────────────────
     brew_complete_colors = {
-        "tea":           (100, 180, 100),
-        "espresso":      (70,   35,  10),
-        "latte":         (210, 180, 130),
-        "cappuccino":    (190, 140,  80),
-        "mocha":         (60,   30,  10),
-        "caramel_latte": (210, 155,  50),
+        "tea":        (100, 180, 100),
+        "espresso":   (70,   35,  10),
+        "latte":      (210, 180, 130),
+        "cappuccino": (190, 140,  80),
+        "mocha":      (60,   30,  10),
     }
     for key, col in brew_complete_colors.items():
-        a[f"{key}_complete"] = load_img(f"assets/{key}_complete.png", (200, 180), col)
+        path = f"assets/{key}_complete.png"
+        if key == "cappuccino" and not os.path.exists(path):
+            typo_path = "assets/cuppaccino_complete.png"
+            if os.path.exists(typo_path):
+                path = typo_path
+        a[f"{key}_complete"] = load_img(path, (200, 180), col)
     a["star"] = load_img("assets/star.png", (20, 20), (255, 224, 102))
 
     # Table/chair assets — chair1 = occupied (with cups), chair2 = empty

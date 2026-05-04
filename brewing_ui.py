@@ -234,9 +234,14 @@ class _Cup:
                 # Build per-layer heights: bottom gets LIQ_BOTTOM_H,
                 # middle layers get LIQ_MIDDLE_H, top fills remaining space.
                 def _layer_h(idx, total):
-                    if idx == 0:               return self.LIQ_BOTTOM_H
-                    if idx < total - 1:        return self.LIQ_MIDDLE_H
-                    return inner_h - self.LIQ_BOTTOM_H - self.LIQ_MIDDLE_H * max(0, total - 2)
+                    # Divide inner_h evenly so 4-ingredient drinks (Mocha,
+                    # Caramel Latte) never produce a negative top-layer height.
+                    if total <= 0:
+                        return inner_h
+                    base = inner_h // total
+                    if idx == total - 1:          # top layer gets the remainder
+                        return max(4, inner_h - base * (total - 1))
+                    return max(4, base)
                 y_cursor = inner_bottom  # start at base, stack upward
                 for i, label in enumerate(self.layers):
                     liq_col = LIQUID_COLORS.get(label, (180, 120, 60))
@@ -360,6 +365,9 @@ class BrewingUI:
         self._result_pending = False
         self._result_success = False
         self.wrong_recipe    = False  # True when player pressed COMPLETE too early
+        # Initialise rects so handle_event never crashes before first draw()
+        self._close_btn_rect    = pygame.Rect(0, 0, 0, 0)
+        self._complete_btn_rect = pygame.Rect(0, 0, 0, 0)
 
     # ── Public API ─────────────────────────────────────────────────────────────
     def poll(self):
@@ -492,44 +500,78 @@ class BrewingUI:
 
         px, py = cx - pw // 2, cy - ph // 2
 
-        # ── Panel background ──────────────────────────────────────────────────
-        panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        # ── Clipboard panel (fully opaque — no see-through) ──────────────────
+        # Colours
+        BOARD_COL   = (118,  72,  28)   # dark wood backing
+        PAPER_COL   = (240, 224, 185)   # warm parchment
+        RULE_COL    = (210, 192, 150)   # faint ruled lines
+        MARGIN_COL  = (210, 120, 110)   # red margin line
+        CLIP_COL    = ( 72,  68,  62)   # metal clip body
+        CLIP_SHINE  = (155, 148, 138)   # metal highlight
 
-        # Panel background — use brewing_bg.png if available
-        bg = self.assets.get("brewing_bg")
-        if bg:
-            scaled_bg = pygame.transform.smoothscale(bg, (pw, ph))
-            panel.blit(scaled_bg, (0, 0))
-        else:
-            pygame.draw.rect(panel, (55, 35, 12, 240), (0, 0, pw, ph), border_radius=14)
-            for gx in range(0, pw, 18):
-                pygame.draw.line(panel, (65, 42, 15, 80), (gx, 0), (gx + 4, ph))
-        pygame.draw.rect(panel, (*C_GOLD, 200), (0, 0, pw, ph), 3, border_radius=14)
+        # Solid board surface (NO SRCALPHA → 100 % opaque)
+        panel = pygame.Surface((pw, ph))
+        panel.fill(BOARD_COL)
+
+        # Paper inset — 6 px margins; top margin larger so clip overlaps border
+        paper_margin = 6
+        paper_top    = 20
+        paper_rect   = pygame.Rect(paper_margin, paper_top,
+                                   pw - paper_margin * 2, ph - paper_top - paper_margin)
+        pygame.draw.rect(panel, PAPER_COL, paper_rect, border_radius=4)
+
+        # Ruled lines
+        for ly in range(paper_rect.y + 22, paper_rect.bottom - 8, 13):
+            pygame.draw.line(panel, RULE_COL,
+                             (paper_rect.x + 36, ly), (paper_rect.right - 8, ly))
+
+        # Red margin line (leftmost vertical)
+        pygame.draw.line(panel, MARGIN_COL,
+                         (paper_rect.x + 32, paper_rect.y + 8),
+                         (paper_rect.x + 32, paper_rect.bottom - 8), 1)
+
+        # Clipboard metal clip — centred at the top
+        clip_w, clip_h = 88, 24
+        clip_x = (pw - clip_w) // 2
+        pygame.draw.rect(panel, CLIP_COL,   (clip_x,     0,       clip_w,     clip_h),     border_radius=5)
+        pygame.draw.rect(panel, CLIP_SHINE, (clip_x + 5, 3,       clip_w - 10, clip_h - 9), border_radius=3)
+        # Clip hole
+        hole_w = 24
+        pygame.draw.rect(panel, (45, 42, 38),
+                         (clip_x + (clip_w - hole_w) // 2, 5, hole_w, clip_h - 8),
+                         border_radius=3)
+
+        # Outer board border
+        pygame.draw.rect(panel, (88, 52, 18), (0, 0, pw, ph), 4, border_radius=10)
 
         surf.blit(panel, (px, py))
 
-        # ── Title bar — adjust TITLE_H at top of class ─────────────────────────
+        # ── Title bar on paper ────────────────────────────────────────────────
         title_h = self.TITLE_H
-        tb = pygame.Surface((pw, title_h), pygame.SRCALPHA)
-        pygame.draw.rect(tb, (30, 18, 6, 240), (0, 0, pw, title_h), border_radius=10)
-        surf.blit(tb, (px, py))
+        tb_rect = pygame.Rect(px + paper_margin, py + paper_top,
+                              pw - paper_margin * 2, title_h)
+        pygame.draw.rect(surf, (200, 182, 138), tb_rect)           # slightly darker paper strip
+        pygame.draw.line(surf, RULE_COL,
+                         (tb_rect.x, tb_rect.bottom), (tb_rect.right, tb_rect.bottom), 2)
         drink_icon = self.assets.get(self.drink_name.lower().replace(" ", "_"))
-        icon_x = px + 16
+        icon_x = tb_rect.x + 10
         if drink_icon:
             icon_s = pygame.transform.scale(drink_icon, (28, 28))
-            surf.blit(icon_s, (icon_x, py + 8))
+            surf.blit(icon_s, (icon_x, tb_rect.y + (title_h - 28) // 2))
             icon_x += 36
-        title_txt = self.fonts.large.render(
-            f"Brew  {self.drink_name}", True, C_WHITE)
-        surf.blit(title_txt, (icon_x, py + 10))
+        title_txt = self.fonts.large.render(f"Brew  {self.drink_name}", True, (60, 35, 10))
+        surf.blit(title_txt, (icon_x, tb_rect.y + (title_h - title_txt.get_height()) // 2))
 
-        # Close X button (always drawn at real position)
-        xbw, xbh = 30, 30
+        # ── X close button — big, red, top-right corner ───────────────────────
+        xbw, xbh = 36, 36
         self._close_btn_rect = pygame.Rect(
-            cx + self.W // 2 - xbw - 8, cy - self.H // 2 + 7, xbw, xbh)
-        pygame.draw.rect(surf, (100, 30, 20), self._close_btn_rect, border_radius=6)
-        pygame.draw.rect(surf, C_RED, self._close_btn_rect, 2, border_radius=6)
-        x_txt = self.fonts.medium.render("X", True, C_CREAM)
+            cx + self.W // 2 - xbw - 6, cy - self.H // 2 + 6, xbw, xbh)
+        mx_now, my_now = pygame.mouse.get_pos()
+        x_hovered = self._close_btn_rect.collidepoint(mx_now, my_now)
+        x_bg_col  = (220, 50, 30) if x_hovered else (170, 35, 20)
+        pygame.draw.rect(surf, x_bg_col,     self._close_btn_rect, border_radius=8)
+        pygame.draw.rect(surf, (255, 100, 80), self._close_btn_rect, 2, border_radius=8)
+        x_txt = self.fonts.large.render("✕", True, C_WHITE)
         surf.blit(x_txt, x_txt.get_rect(center=self._close_btn_rect.center))
 
         if t < 0.5:
@@ -549,10 +591,10 @@ class BrewingUI:
             surf.blit(scaled_shelf, shelf_rect.topleft)
             pygame.draw.rect(surf, C_BORDER, shelf_rect, 2, border_radius=8)
         else:
-            pygame.draw.rect(surf, (35, 22, 8, 200), shelf_rect, border_radius=8)
+            pygame.draw.rect(surf, (160, 100, 40), shelf_rect, border_radius=8)
             pygame.draw.rect(surf, C_BORDER, shelf_rect, 2, border_radius=8)
         shelf_lbl = self.fonts.tiny.render("── Drag ingredients into the cup ──",
-                                            True, C_GRAY)
+                                            True, (80, 50, 15))
         surf.blit(shelf_lbl, shelf_lbl.get_rect(
             center=(cx, shelf_y - 20)))
 
@@ -604,7 +646,7 @@ class BrewingUI:
         missing = [ing.label for ing in self._ingredients if not ing.dropped]
         if missing:
             hint = self.fonts.tiny.render(
-                "Missing: " + ", ".join(missing) + "   -2 rep if incomplete!", True, (220, 130, 40))
+                "Missing: " + ", ".join(missing) + "   -2 rep if incomplete!", True, (160, 60, 15))
             surf.blit(hint, hint.get_rect(center=(cx, cby + cbh + 14)))
 
         # ── Confetti ──────────────────────────────────────────────────────────

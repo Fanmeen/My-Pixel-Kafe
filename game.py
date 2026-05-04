@@ -1618,7 +1618,11 @@ class CafeTycoon:
             self.end_day()
         elif tag == "upgrade":
             cost = 60
-            if self.coins >= cost:
+            already_max = (self.max_orders >= 8 and self.spawn_interval <= 2.5)
+            if already_max:
+                self._play_sfx("fail")
+                self.notify("Max upgrade reached! Your cafe is fully upgraded! ", C_GOLD, 3.0)
+            elif self.coins >= cost:
                 self.coins -= cost
                 self.max_orders     = min(8, self.max_orders + 1)
                 self.spawn_interval = max(2.5, self.spawn_interval - 0.5)
