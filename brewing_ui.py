@@ -502,7 +502,7 @@ class BrewingUI:
 
         # ── Clipboard panel (fully opaque — no see-through) ──────────────────
         # Colours
-        BOARD_COL   = (118,  72,  28)   # dark wood backing
+        BOARD_COL   = (118,  72,  28)   # dark wood backing (fallback)
         PAPER_COL   = (240, 224, 185)   # warm parchment
         RULE_COL    = (210, 192, 150)   # faint ruled lines
         MARGIN_COL  = (210, 120, 110)   # red margin line
@@ -511,24 +511,21 @@ class BrewingUI:
 
         # Solid board surface (NO SRCALPHA → 100 % opaque)
         panel = pygame.Surface((pw, ph))
-        panel.fill(BOARD_COL)
+        # Use the brewing_bg wood texture as the full background
+        _brew_bg = self.assets.get("brewing_bg") if self.assets else None
+        if _brew_bg:
+            _scaled_bg = pygame.transform.smoothscale(_brew_bg, (pw, ph))
+            panel.blit(_scaled_bg, (0, 0))
+        else:
+            panel.fill(BOARD_COL)
 
-        # Paper inset — 6 px margins; top margin larger so clip overlaps border
-        paper_margin = 6
-        paper_top    = 20
-        paper_rect   = pygame.Rect(paper_margin, paper_top,
-                                   pw - paper_margin * 2, ph - paper_top - paper_margin)
-        pygame.draw.rect(panel, PAPER_COL, paper_rect, border_radius=4)
-
-        # Ruled lines
-        for ly in range(paper_rect.y + 22, paper_rect.bottom - 8, 13):
-            pygame.draw.line(panel, RULE_COL,
-                             (paper_rect.x + 36, ly), (paper_rect.right - 8, ly))
-
-        # Red margin line (leftmost vertical)
-        pygame.draw.line(panel, MARGIN_COL,
-                         (paper_rect.x + 32, paper_rect.y + 8),
-                         (paper_rect.x + 32, paper_rect.bottom - 8), 1)
+        # Subtle dark vignette overlay so edges look framed
+        vign = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        pygame.draw.rect(vign, (0, 0, 0, 0), (0, 0, pw, ph))
+        for edge_w in range(18, 0, -2):
+            a = int(80 * (1 - edge_w / 18))
+            pygame.draw.rect(vign, (0, 0, 0, a), (edge_w, edge_w, pw - edge_w*2, ph - edge_w*2), 1)
+        panel.blit(vign, (0, 0))
 
         # Clipboard metal clip — centred at the top
         clip_w, clip_h = 88, 24
@@ -541,25 +538,25 @@ class BrewingUI:
                          (clip_x + (clip_w - hole_w) // 2, 5, hole_w, clip_h - 8),
                          border_radius=3)
 
-        # Outer board border
-        pygame.draw.rect(panel, (88, 52, 18), (0, 0, pw, ph), 4, border_radius=10)
+        # Outer border
+        pygame.draw.rect(panel, (60, 30, 8), (0, 0, pw, ph), 4, border_radius=10)
 
         surf.blit(panel, (px, py))
 
-        # ── Title bar on paper ────────────────────────────────────────────────
+        # ── Title — drawn directly on wood texture ────────────────────────────
         title_h = self.TITLE_H
-        tb_rect = pygame.Rect(px + paper_margin, py + paper_top,
-                              pw - paper_margin * 2, title_h)
-        pygame.draw.rect(surf, (200, 182, 138), tb_rect)           # slightly darker paper strip
-        pygame.draw.line(surf, RULE_COL,
-                         (tb_rect.x, tb_rect.bottom), (tb_rect.right, tb_rect.bottom), 2)
+        # Semi-transparent dark strip behind title text for readability
+        title_bg = pygame.Surface((pw - 12, title_h), pygame.SRCALPHA)
+        pygame.draw.rect(title_bg, (0, 0, 0, 100), (0, 0, pw - 12, title_h), border_radius=6)
+        surf.blit(title_bg, (px + 6, py + 26))
+        tb_rect = pygame.Rect(px + 6, py + 26, pw - 12, title_h)
         drink_icon = self.assets.get(self.drink_name.lower().replace(" ", "_"))
         icon_x = tb_rect.x + 10
         if drink_icon:
             icon_s = pygame.transform.scale(drink_icon, (28, 28))
             surf.blit(icon_s, (icon_x, tb_rect.y + (title_h - 28) // 2))
             icon_x += 36
-        title_txt = self.fonts.large.render(f"Brew  {self.drink_name}", True, (60, 35, 10))
+        title_txt = self.fonts.large.render(f"Brew  {self.drink_name}", True, C_GOLD)
         surf.blit(title_txt, (icon_x, tb_rect.y + (title_h - title_txt.get_height()) // 2))
 
         # ── X close button — big, red, top-right corner ───────────────────────
@@ -594,7 +591,7 @@ class BrewingUI:
             pygame.draw.rect(surf, (160, 100, 40), shelf_rect, border_radius=8)
             pygame.draw.rect(surf, C_BORDER, shelf_rect, 2, border_radius=8)
         shelf_lbl = self.fonts.tiny.render("── Drag ingredients into the cup ──",
-                                            True, (80, 50, 15))
+                                            True, C_CREAM)
         surf.blit(shelf_lbl, shelf_lbl.get_rect(
             center=(cx, shelf_y - 20)))
 
@@ -646,7 +643,7 @@ class BrewingUI:
         missing = [ing.label for ing in self._ingredients if not ing.dropped]
         if missing:
             hint = self.fonts.tiny.render(
-                "Missing: " + ", ".join(missing) + "   -2 rep if incomplete!", True, (160, 60, 15))
+                "Missing: " + ", ".join(missing) + "   -2 rep if incomplete!", True, (255, 160, 80))
             surf.blit(hint, hint.get_rect(center=(cx, cby + cbh + 14)))
 
         # ── Confetti ──────────────────────────────────────────────────────────

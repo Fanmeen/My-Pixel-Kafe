@@ -273,7 +273,7 @@ class CafeTycoon:
             pass
 
     def _update_slider_from_mouse(self, key, mx):
-        """Recalculate a volume from mouse x, clamped to slider track."""
+        
         rect = self._slider_rects.get(key)
         if not rect:
             return
@@ -302,7 +302,7 @@ class CafeTycoon:
 
     # ── Main Menu ──────────────────────────────────────────────────────────────
     def _load_menu_textures(self):
-        """Crop texture.png into wood, parchment and leather sub-surfaces."""
+        
         import os
         if not os.path.exists("assets/texture.png"):
             self._tex_wood      = None
@@ -334,7 +334,7 @@ class CafeTycoon:
             pygame.draw.rect(self.screen, border_color, rect, 2, border_radius=radius)
 
     def _draw_main_menu(self):
-        """Full-screen main menu — cinematic layout."""
+        
         self._ensure_gif_surfaces()
 
         # ── Background ────────────────────────────────────────────────────────
@@ -1154,67 +1154,130 @@ class CafeTycoon:
         self._shop_close_rect = close_rect
 
     def _draw_recipe_book(self):
-        """Overlay showing recipes for every unlocked drink."""
-        from brewing_ui import RECIPES
+
+        from brewing_ui import RECIPES, _INGREDIENT_SPRITE
         overlay = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
+        overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
 
         unlocked = [n for n in DRINK_NAMES if n in self.unlocked_drinks]
-        cols      = min(len(unlocked), 3)
-        card_w, card_h = 220, 220
-        pad       = 18
-        total_w   = cols * card_w + (cols - 1) * pad
-        bx        = (SCREEN_W - total_w) // 2
-        by        = (SCREEN_H - card_h) // 2 - 30
+        n_drinks  = len(unlocked)
+        if n_drinks == 0:
+            return
 
+        # ── Layout math: fit all cards on screen ──────────────────────────────
+        CLOSE_BTN_H = 40   # pixels reserved at the very bottom for the close btn
+        MARGIN_TOP  = 14
+        MARGIN_SIDE = 16
+        PAD         = 10   # gap between cards
+
+        # Choose columns: up to 3 per row but never wider than screen
+        cols     = min(n_drinks, 3)
+        rows     = (n_drinks + cols - 1) // cols
+
+        # Card width: divide available horizontal space evenly
+        avail_w  = SCREEN_W - 2 * MARGIN_SIDE - PAD * (cols - 1)
+        card_w   = min(avail_w // cols, 170)   # cap at 170px wide
+
+        # Card height: divide available vertical space evenly
+        avail_h  = SCREEN_H - MARGIN_TOP - CLOSE_BTN_H - PAD * (rows - 1) - 10
+        card_h   = avail_h // rows
+        card_h   = min(card_h, 165)   # cap at 165px tall
+
+        # Centre the whole grid horizontally and vertically
+        grid_w   = cols * card_w + (cols - 1) * PAD
+        grid_h   = rows * card_h + (rows - 1) * PAD
+        bx       = (SCREEN_W - grid_w) // 2
+        by       = (SCREEN_H - grid_h - CLOSE_BTN_H) // 2
+
+        # ── Draw each recipe card ─────────────────────────────────────────────
         for idx, name in enumerate(unlocked):
-            col  = idx % 3
-            row  = idx // 3
-            cx_  = bx + col * (card_w + pad)
-            cy_  = by + row * (card_h + pad + 10)
+            col_i = idx % cols
+            row_i = idx // cols
+            cx_   = bx + col_i * (card_w + PAD)
+            cy_   = by + row_i * (card_h + PAD)
 
-            # Card background
+            # ── Card background: parchment-style with wood border ─────────────
             card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-            pygame.draw.rect(card_surf, (55, 35, 12, 230), (0, 0, card_w, card_h), border_radius=10)
-            pygame.draw.rect(card_surf, C_BORDER, (0, 0, card_w, card_h), 2, border_radius=10)
+            # Warm parchment fill
+            pygame.draw.rect(card_surf, (235, 215, 170, 240),
+                             (0, 0, card_w, card_h), border_radius=10)
+            # Dark-wood inner shadow strip at top (header area)
+            pygame.draw.rect(card_surf, (90, 55, 18, 200),
+                             (0, 0, card_w, 36), border_radius=10)
+            # Re-clip top-right/left to keep rounded look for header
+            pygame.draw.rect(card_surf, (90, 55, 18, 200),
+                             (0, 20, card_w, 16))
+            # Gold outer border
+            pygame.draw.rect(card_surf, (*C_BORDER, 255),
+                             (0, 0, card_w, card_h), 2, border_radius=10)
             self.screen.blit(card_surf, (cx_, cy_))
 
-            # Drink icon + name header
+            # ── Header: drink icon + name ─────────────────────────────────────
             icon = self.assets.get(name.lower().replace(" ", "_"))
-            hx   = cx_ + 10
+            hx   = cx_ + 8
             if icon:
-                self.screen.blit(pygame.transform.scale(icon, (28, 28)), (hx, cy_ + 8))
-                hx += 34
-            draw_text(self.screen, self.fonts, name, (hx, cy_ + 14), C_GOLD, "small")
+                icon_s = pygame.transform.scale(icon, (22, 22))
+                icon_s.set_colorkey((0, 0, 0))
+                self.screen.blit(icon_s, (hx, cy_ + 7))
+                hx += 28
+            draw_text(self.screen, self.fonts, name,
+                      (hx, cy_ + 10), C_GOLD, "small")
 
-            # Divider
+            # Thin divider below header
             pygame.draw.line(self.screen, C_BORDER,
-                             (cx_ + 8, cy_ + 42), (cx_ + card_w - 8, cy_ + 42), 1)
+                             (cx_ + 6, cy_ + 38), (cx_ + card_w - 6, cy_ + 38), 1)
 
-            # Ingredients list
-            recipe = RECIPES.get(name, [])
+            # ── Ingredient list with real sprite tokens ───────────────────────
+            recipe    = RECIPES.get(name, [])
+            # Vertical space left for ingredients + price line
+            body_top  = cy_ + 44
+            price_h   = 16
+            body_h    = card_h - 44 - price_h - 6
+            # Row height: split body evenly among ingredients
+            row_h     = max(18, body_h // max(len(recipe), 1))
+            token_r   = min(12, row_h // 2 - 1)   # token radius, shrinks for tall recipes
+
             for i, (label, color, icon_char) in enumerate(recipe):
-                iy = cy_ + 54 + i * 30
-                pygame.draw.circle(self.screen, color, (cx_ + 22, iy + 8), 10)
-                pygame.draw.circle(self.screen, C_BORDER, (cx_ + 22, iy + 8), 10, 1)
-                draw_text(self.screen, self.fonts, f"{icon_char} {label}",
-                          (cx_ + 34, iy + 2), C_CREAM, "small")
+                iy = body_top + i * row_h + row_h // 2
 
-            _, rep_gain, _ = DRINKS[name]
-            price, _, _    = DRINKS[name]
-            draw_text(self.screen, self.fonts, f"${price}  +{rep_gain} rep",
-                      (cx_ + card_w // 2, cy_ + card_h - 18), C_GOLD, "tiny", "center")
+                # Ingredient sprite token (64×64 PNG, black BG stripped)
+                spr_key = _INGREDIENT_SPRITE.get(label)
+                spr     = self.assets.get(spr_key) if spr_key else None
+                tx      = cx_ + 10 + token_r
+                if spr:
+                    size   = token_r * 2
+                    scaled = pygame.transform.scale(spr, (size, size))
+                    scaled.set_colorkey((0, 0, 0))
+                    self.screen.blit(scaled, (tx - token_r, iy - token_r))
+                else:
+                    # Fallback coloured circle
+                    pygame.draw.circle(self.screen, color, (tx, iy), token_r)
+                    pygame.draw.circle(self.screen, C_BORDER, (tx, iy), token_r, 1)
 
-        # Close button
-        close_rect = pygame.Rect(SCREEN_W // 2 - 80, by + (len(unlocked) // 3 + 1) * (card_h + pad + 10) + 10, 160, 34)
-        hov = close_rect.collidepoint(pygame.mouse.get_pos())
-        s   = pygame.Surface((160, 34), pygame.SRCALPHA)
-        pygame.draw.rect(s, (80, 50, 15, 200) if not hov else (120, 80, 20, 240), (0, 0, 160, 34), border_radius=6)
+                # Ingredient label in dark ink on parchment
+                lbl_font = "tiny" if card_h < 170 else "small"
+                draw_text(self.screen, self.fonts, label,
+                          (tx + token_r + 6, iy - 7), C_DARK, lbl_font)
+
+            # ── Price / rep footer ────────────────────────────────────────────
+            price, rep_gain, _ = DRINKS[name]
+            draw_text(self.screen, self.fonts,
+                      f"${price}  +{rep_gain} rep",
+                      (cx_ + card_w // 2, cy_ + card_h - price_h),
+                      (110, 70, 10), "tiny", "midtop")
+
+        # ── CLOSE button — always anchored at bottom of screen ────────────────
+        close_y    = SCREEN_H - CLOSE_BTN_H - 4
+        close_rect = pygame.Rect(SCREEN_W // 2 - 90, close_y, 180, CLOSE_BTN_H - 4)
+        hov        = close_rect.collidepoint(pygame.mouse.get_pos())
+        btn_col    = (120, 80, 20, 240) if hov else (80, 50, 15, 220)
+        s          = pygame.Surface((close_rect.width, close_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(s, btn_col, (0, 0, close_rect.width, close_rect.height), border_radius=8)
         self.screen.blit(s, close_rect.topleft)
-        pygame.draw.rect(self.screen, C_GOLD, close_rect, 2, border_radius=6)
-        draw_text(self.screen, self.fonts, "CLOSE",
-                  (close_rect.centerx, close_rect.centery), C_GOLD, "small", "center")
+        pygame.draw.rect(self.screen, C_GOLD, close_rect, 2, border_radius=8)
+        draw_text(self.screen, self.fonts, "X  CLOSE",
+                  (close_rect.centerx, close_rect.centery), C_GOLD, "medium", "center")
         self._recipe_book_close_rect = close_rect
 
     def _draw_day_over(self):
