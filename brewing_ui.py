@@ -495,7 +495,7 @@ class BrewingUI:
         surf.blit(dim, (0, 0))
 
         pw, ph = int(self.W * t), int(self.H * t)
-        if pw < 4 or ph < 4:
+        if pw < 16 or ph < 16:
             return
 
         px, py = cx - pw // 2, cy - ph // 2

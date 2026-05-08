@@ -833,12 +833,8 @@ class CafeTycoon:
         P1_CX  = (P1_L + P1_R) // 2
         draw_text(self.screen, self.fonts, f"Day {self.day}",
                   (P1_CX, CY - 14), C_GOLD, "small", "midtop")
-        if self.unlocked_drinks:
-            draw_text(self.screen, self.fonts, f"{hour12}:{self.minute:02d} {ampm}",
-                      (P1_CX, CY + 2),  C_CREAM, "small", "midtop")
-        else:
-            draw_text(self.screen, self.fonts, "-- PAUSED --",
-                      (P1_CX, CY + 2),  C_RED, "small", "midtop")
+        draw_text(self.screen, self.fonts, f"{hour12}:{self.minute:02d} {ampm}",
+                  (P1_CX, CY + 2),  C_CREAM, "small", "midtop")
 
         coin_icon = self.assets.get("coin")
         P2_CX     = (P2_L + P2_R) // 2
@@ -1033,10 +1029,7 @@ class CafeTycoon:
                   (12, self.ORDERS_Y + 6), C_WHITE, "tiny")
         if not self.orders:
             if not self.unlocked_drinks:
-                draw_text(self.screen, self.fonts, "Open SHOP and buy Tea to start serving!",
-                          (12, self.ORDERS_Y + 45), C_GOLD, "small")
-                draw_text(self.screen, self.fonts, "(clock & customers will start once you buy your first drink)",
-                          (12, self.ORDERS_Y + 68), C_GRAY, "tiny")
+                pass
             else:
                 draw_text(self.screen, self.fonts, "Waiting for customers...",
                           (12, self.ORDERS_Y + 55), C_GRAY, "small")
