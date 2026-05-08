@@ -83,7 +83,7 @@ class CafeTycoon:
         self._slider_rects    = {}     # key -> pygame.Rect (filled each draw)
         self.fan_frame_idx   = 0
         self.fan_frame_accum = 0.0
-        self.unlocked_drinks: set = {"Tea"}   # Tea is always available from day 1
+        self.unlocked_drinks: set = set()   # Player must buy Tea from Shop to start
         self._shop_rects      = {}
         self._shop_close_rect = pygame.Rect(0, 0, 0, 0)
         self.recipe_book_open = False
@@ -683,12 +683,15 @@ class CafeTycoon:
             if self.fan_frame_accum >= 1 / 4:
                 self.fan_frame_accum = 0.0
                 self.fan_frame_idx = (self.fan_frame_idx + 1) % 4
-            self.advance_time(dt)
-            self.spawn_timer += dt
-            if self.spawn_timer >= self.spawn_interval:
-                self.spawn_timer = 0.0
-                if random.random() < 0.75:
-                    self.spawn_order()
+
+            # ── Clock & spawning only start after player buys first drink ──
+            if self.unlocked_drinks:
+                self.advance_time(dt)
+                self.spawn_timer += dt
+                if self.spawn_timer >= self.spawn_interval:
+                    self.spawn_timer = 0.0
+                    if random.random() < 0.75:
+                        self.spawn_order()
 
             # Only count down order timers for orders whose customer has arrived.
             # This prevents an order from "expiring" while its customer is still
@@ -830,8 +833,12 @@ class CafeTycoon:
         P1_CX  = (P1_L + P1_R) // 2
         draw_text(self.screen, self.fonts, f"Day {self.day}",
                   (P1_CX, CY - 14), C_GOLD, "small", "midtop")
-        draw_text(self.screen, self.fonts, f"{hour12}:{self.minute:02d} {ampm}",
-                  (P1_CX, CY + 2),  C_CREAM, "small", "midtop")
+        if self.unlocked_drinks:
+            draw_text(self.screen, self.fonts, f"{hour12}:{self.minute:02d} {ampm}",
+                      (P1_CX, CY + 2),  C_CREAM, "small", "midtop")
+        else:
+            draw_text(self.screen, self.fonts, "-- PAUSED --",
+                      (P1_CX, CY + 2),  C_RED, "small", "midtop")
 
         coin_icon = self.assets.get("coin")
         P2_CX     = (P2_L + P2_R) // 2
@@ -909,10 +916,10 @@ class CafeTycoon:
                           f"{name[:4].upper()}  {price}c (+{rep_gain}rep)",
                           (LB_CX, LB_Y + 14 + i * LINE_H), C_CREAM, "tiny", "midtop")
         else:
-            draw_text(self.screen, self.fonts, "Go to SHOP to",
-                      (LB_CX, LB_Y + 14), C_GRAY, "tiny", "midtop")
-            draw_text(self.screen, self.fonts, "buy your first drink!",
-                      (LB_CX, LB_Y + 27), C_GRAY, "tiny", "midtop")
+            draw_text(self.screen, self.fonts, "Buy Tea from",
+                      (LB_CX, LB_Y + 14), C_GOLD, "tiny", "midtop")
+            draw_text(self.screen, self.fonts, "SHOP to open!",
+                      (LB_CX, LB_Y + 27), C_GOLD, "tiny", "midtop")
 
         RB_CX = 780; RB_Y = 135
         next_locked = [(n, c, r) for n, (c, r) in SHOP_UNLOCK.items()
@@ -1027,7 +1034,9 @@ class CafeTycoon:
         if not self.orders:
             if not self.unlocked_drinks:
                 draw_text(self.screen, self.fonts, "Open SHOP and buy Tea to start serving!",
-                          (12, self.ORDERS_Y + 55), C_GRAY, "small")
+                          (12, self.ORDERS_Y + 45), C_GOLD, "small")
+                draw_text(self.screen, self.fonts, "(clock & customers will start once you buy your first drink)",
+                          (12, self.ORDERS_Y + 68), C_GRAY, "tiny")
             else:
                 draw_text(self.screen, self.fonts, "Waiting for customers...",
                           (12, self.ORDERS_Y + 55), C_GRAY, "small")
@@ -1039,8 +1048,8 @@ class CafeTycoon:
             draw_text(self.screen, self.fonts, "COFFEE MENU",
                       (12, self.MENU_Y - 14), C_WHITE, "tiny")
         else:
-            draw_text(self.screen, self.fonts, "Buy a drink in SHOP to fill the menu!",
-                      (12, self.MENU_Y - 14), C_GRAY, "tiny")
+            draw_text(self.screen, self.fonts, "⚠ Buy Tea from SHOP to open your café!",
+                      (12, self.MENU_Y - 14), C_GOLD, "tiny")
 
         hovered_drink = next((btn.tag for btn in self.menu_buttons if btn.hovered), None)
         if hovered_drink:
@@ -1653,7 +1662,12 @@ class CafeTycoon:
         front_customer = next((c for c in self.customers if c.slot == 0 and not c.seated), None)
         if not front_customer:
             self._play_sfx("fail")
-            self.notify(f"No {drink_name} orders right now!", C_RED)
+            if not self.unlocked_drinks:
+                self.notify("Buy Tea from SHOP to open your café!", C_GOLD)
+            elif not self.customers:
+                self.notify("No customers yet — wait for someone to walk in!", C_GOLD)
+            else:
+                self.notify(f"No {drink_name} orders right now!", C_RED)
             return
         if front_customer.walking or front_customer.leaving or front_customer.arrived_timer < 0.4:
             if any(o.drink == drink_name for o in self.orders):
