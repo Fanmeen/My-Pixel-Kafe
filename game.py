@@ -1225,15 +1225,51 @@ class CafeTycoon:
                 lock_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
                 lock_surf.fill((0, 0, 0, 60))
                 self.screen.blit(lock_surf, (cx_, cy_))
-                lock_txt = self.fonts.large.render("🔒", True, (180, 140, 60))
-                self.screen.blit(lock_txt, lock_txt.get_rect(center=(cx_ + card_w // 2, cy_ + card_h // 2 - 8)))
+
+                # Draw drink name in the header area even when locked
+                icon = self.assets.get(name.lower().replace(" ", "_"))
+                hx = cx_ + 8
+                if icon:
+                    icon_s = pygame.transform.scale(icon, (18, 18))
+                    icon_s_copy = icon_s.copy()
+                    icon_s_copy.set_alpha(120)
+                    self.screen.blit(icon_s_copy, (hx, cy_ + 9))
+                    hx += 24
+                name_surf = self.fonts.small.render(name, True, (160, 130, 80))
+                self.screen.blit(name_surf, (hx, cy_ + 11))
+
+                # Draw a proper lock shape using pygame primitives
+                lcx = cx_ + card_w // 2
+                lcy = cy_ + card_h // 2 - 4
+                # Lock shackle (arc/rounded rect top)
+                shackle_w, shackle_h = 18, 14
+                shackle_rect = pygame.Rect(lcx - shackle_w // 2, lcy - shackle_h - 8,
+                                           shackle_w, shackle_h + 4)
+                pygame.draw.rect(self.screen, (140, 100, 40), shackle_rect, 3, border_radius=9)
+                # Lock body
+                body_w, body_h = 28, 20
+                body_rect = pygame.Rect(lcx - body_w // 2, lcy - 8, body_w, body_h)
+                pygame.draw.rect(self.screen, (140, 100, 40), body_rect, border_radius=4)
+                pygame.draw.rect(self.screen, (180, 140, 60), body_rect, 2, border_radius=4)
+                # Keyhole
+                pygame.draw.circle(self.screen, (80, 55, 15), (lcx, lcy + 2), 4)
+                pygame.draw.rect(self.screen, (80, 55, 15),
+                                 pygame.Rect(lcx - 2, lcy + 2, 4, 5))
+
+                # Requirement text
                 req_coins, req_rep = SHOP_UNLOCK.get(name, (0, 0))
-                req_str = f"Buy in Shop  (need {req_rep} rep)" if req_rep > 0 else "Buy in Shop"
-                req_surf = self.fonts.tiny.render(req_str, True, (160, 120, 60))
-                self.screen.blit(req_surf, req_surf.get_rect(center=(cx_ + card_w // 2, cy_ + card_h // 2 + 18)))
+                mid_x = cx_ + card_w // 2
+                if req_rep > 0:
+                    rep_col = C_GREEN if self.rep >= req_rep else C_RED
+                    rep_surf = self.fonts.tiny.render(f"Need {req_rep} rep", True, rep_col)
+                    self.screen.blit(rep_surf, rep_surf.get_rect(center=(mid_x, lcy + 22)))
+                coin_surf = self.fonts.tiny.render(f"Cost: {req_coins} coins", True, (160, 130, 70))
+                self.screen.blit(coin_surf, coin_surf.get_rect(center=(mid_x, lcy + 34)))
+                shop_surf = self.fonts.tiny.render("Buy in SHOP", True, (180, 150, 80))
+                self.screen.blit(shop_surf, shop_surf.get_rect(center=(mid_x, lcy + 46)))
 
             if is_locked:
-                continue   # don't draw header/ingredients over the lock overlay
+                continue   # don't draw ingredient list over the lock overlay
 
             # ── Header: drink icon + name ─────────────────────────────────────
             icon = self.assets.get(name.lower().replace(" ", "_"))
