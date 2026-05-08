@@ -568,7 +568,7 @@ class BrewingUI:
         x_bg_col  = (220, 50, 30) if x_hovered else (170, 35, 20)
         pygame.draw.rect(surf, x_bg_col,     self._close_btn_rect, border_radius=8)
         pygame.draw.rect(surf, (255, 100, 80), self._close_btn_rect, 2, border_radius=8)
-        x_txt = self.fonts.large.render("✕", True, C_WHITE)
+        x_txt = self.fonts.large.render("X", True, C_WHITE)
         surf.blit(x_txt, x_txt.get_rect(center=self._close_btn_rect.center))
 
         if t < 0.5:

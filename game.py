@@ -1041,8 +1041,8 @@ class CafeTycoon:
             draw_text(self.screen, self.fonts, "COFFEE MENU",
                       (12, self.MENU_Y - 14), C_WHITE, "tiny")
         else:
-            draw_text(self.screen, self.fonts, "⚠ Buy Tea from SHOP to open your café!",
-                      (12, self.MENU_Y - 14), C_GOLD, "tiny")
+            draw_text(self.screen, self.fonts, " Buy Tea from SHOP to open your café!",
+                      (12, self.MENU_Y - 14), C_WHITE, "tiny")
 
         hovered_drink = next((btn.tag for btn in self.menu_buttons if btn.hovered), None)
         if hovered_drink:
@@ -1162,7 +1162,7 @@ class CafeTycoon:
         overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
 
-        unlocked = [n for n in DRINK_NAMES if n in self.unlocked_drinks]
+        unlocked = list(DRINK_NAMES)   # show all drinks; locked ones get a lock indicator
         n_drinks  = len(unlocked)
         if n_drinks == 0:
             return
@@ -1199,21 +1199,41 @@ class CafeTycoon:
             cx_   = bx + col_i * (card_w + PAD)
             cy_   = by + row_i * (card_h + PAD)
 
+            is_locked = name not in self.unlocked_drinks
+
             # ── Card background: parchment-style with wood border ─────────────
             card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-            # Warm parchment fill
-            pygame.draw.rect(card_surf, (235, 215, 170, 240),
+            # Warm parchment fill (dimmer if locked)
+            parchment = (180, 165, 130, 200) if is_locked else (235, 215, 170, 240)
+            pygame.draw.rect(card_surf, parchment,
                              (0, 0, card_w, card_h), border_radius=10)
             # Dark-wood inner shadow strip at top (header area)
-            pygame.draw.rect(card_surf, (90, 55, 18, 200),
+            header_col = (60, 38, 12, 200) if is_locked else (90, 55, 18, 200)
+            pygame.draw.rect(card_surf, header_col,
                              (0, 0, card_w, 36), border_radius=10)
             # Re-clip top-right/left to keep rounded look for header
-            pygame.draw.rect(card_surf, (90, 55, 18, 200),
+            pygame.draw.rect(card_surf, header_col,
                              (0, 20, card_w, 16))
-            # Gold outer border
-            pygame.draw.rect(card_surf, (*C_BORDER, 255),
+            # Border: grey if locked, gold if unlocked
+            border_col = (100, 80, 50, 200) if is_locked else (*C_BORDER, 255)
+            pygame.draw.rect(card_surf, border_col,
                              (0, 0, card_w, card_h), 2, border_radius=10)
             self.screen.blit(card_surf, (cx_, cy_))
+
+            # Lock overlay for locked drinks
+            if is_locked:
+                lock_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+                lock_surf.fill((0, 0, 0, 60))
+                self.screen.blit(lock_surf, (cx_, cy_))
+                lock_txt = self.fonts.large.render("🔒", True, (180, 140, 60))
+                self.screen.blit(lock_txt, lock_txt.get_rect(center=(cx_ + card_w // 2, cy_ + card_h // 2 - 8)))
+                req_coins, req_rep = SHOP_UNLOCK.get(name, (0, 0))
+                req_str = f"Buy in Shop  (need {req_rep} rep)" if req_rep > 0 else "Buy in Shop"
+                req_surf = self.fonts.tiny.render(req_str, True, (160, 120, 60))
+                self.screen.blit(req_surf, req_surf.get_rect(center=(cx_ + card_w // 2, cy_ + card_h // 2 + 18)))
+
+            if is_locked:
+                continue   # don't draw header/ingredients over the lock overlay
 
             # ── Header: drink icon + name ─────────────────────────────────────
             icon = self.assets.get(name.lower().replace(" ", "_"))
